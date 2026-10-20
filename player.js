@@ -1,4 +1,4 @@
-const APP_VERSION='12'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='13'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -20,9 +20,15 @@ async function getToken(){   // demo only: signs in the browser; a real server w
   const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
   const payload=toB64u(new TextEncoder().encode(JSON.stringify({sub:'demo-user',exp:Date.now()+ttl*1000})));
   const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},kp.privateKey,new TextEncoder().encode(payload));
+  localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');   // a new token always replaces the old one
   localStorage.setItem('poc-token',payload+'.'+toB64u(sig));
   localStorage.setItem('poc-key',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.publicKey)));
   await showAccess();
+  $('msg').textContent='New token issued ('+(ttl>=86400?Math.round(ttl/86400)+' days':ttl+' seconds')+'). It replaces any earlier token.';
+}
+function revokeToken(){
+  stop();localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');
+  showAccess();$('msg').textContent='Token revoked on this device. Saved songs are kept but will not play until you get a new token.';
 }
 async function checkAccess(){
   const t=localStorage.getItem('poc-token'),k=localStorage.getItem('poc-key');
@@ -115,6 +121,7 @@ function init(){
   const net=()=>{$('net').innerHTML='Network: '+(navigator.onLine?'<b class="ok">online</b>':'<b class="bad">offline</b>');};
   addEventListener('online',net);addEventListener('offline',net);net();
   $('getToken').onclick=()=>getToken().catch(e=>$('access').textContent='Token failed: '+e.message);
+  $('revoke').onclick=revokeToken;
   $('save').onclick=save;$('remove').onclick=removeSaved;$('play').onclick=play;$('stop').onclick=stop;
   $('song').onchange=refreshSaved;
   initSW();showAccess();refreshSaved();showVersion();
