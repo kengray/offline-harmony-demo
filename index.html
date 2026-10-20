@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harmony offline demo</title><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg">
+<style>
+body{font-family:system-ui,sans-serif;max-width:34rem;margin:1rem auto;padding:0 1rem;color:#1a1a1a;background:#fff}
+@media (prefers-color-scheme:dark){body{color:#eee;background:#161616}}
+h1{font-size:1.2rem} fieldset{border:1px solid #888;border-radius:6px;margin:.8rem 0}
+.row{display:flex;gap:.6rem;align-items:center;margin:.35rem 0} .row label{width:5.5rem}
+input[type=range]{flex:1} button{padding:.4rem .8rem;margin:.15rem} #status div{margin:.15rem 0}
+.ok{color:#1b7a3a}.bad{color:#b3261e}
+</style></head><body>
+<h1>Harmony offline demo (proof of concept)</h1>
+<fieldset><legend>Connection and access</legend>
+<div id="status"><div id="net"></div><div id="sw"></div><div id="access"></div></div>
+<select id="ttl"><option value="60">1 minute (to see expiry)</option><option value="2592000" selected>30 days</option></select>
+<button id="getToken">Get demo access token</button>
+<p style="font-size:.85rem">Demo only: here the page signs its own token. In a real build the server issues it after checking the subscription.</p>
+</fieldset>
+<fieldset><legend>Song</legend>
+<select id="song"><option value="song-a">Song A</option><option value="song-b">Song B</option></select>
+<span id="saved"></span><br>
+<button id="save">Save for offline</button><button id="remove">Remove saved copy</button>
+<button id="play">Play</button><button id="stop">Stop</button>
+<div id="msg" role="status"></div>
+</fieldset>
+<fieldset><legend>Mix</legend><div id="mix"></div></fieldset>
+<script src="player.js"></script>
+</body></html>
