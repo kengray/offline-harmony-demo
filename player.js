@@ -1,4 +1,4 @@
-const APP_VERSION='3'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='4'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -45,19 +45,21 @@ const url=(song,v)=>`audio/${song}-${v}.wav`;
 async function isSaved(song){const c=await caches.open(SONGS);
   return (await Promise.all(VOICES.map(v=>c.match(url(song,v))))).every(Boolean);}
 async function refreshSaved(){const s=$('song').value;
+  for(const o of $('song').options){const sv=await isSaved(o.value);o.textContent=o.dataset.name+(sv?' (saved)':'');}
   $('saved').innerHTML=(await isSaved(s))?'<b class="ok">saved on this device</b>':'<span class="bad">not saved</span>';}
 async function save(){
   const s=$('song').value;$('msg').textContent='Saving...';
   try{const c=await caches.open(SONGS);let bytes=0;
     for(const v of VOICES){const r=await fetch(url(s,v));if(!r.ok)throw new Error('HTTP '+r.status);
       const copy=r.clone();bytes+=(await copy.arrayBuffer()).byteLength;await c.put(url(s,v),r);}
-    $('msg').textContent='Saved '+(bytes/1e6).toFixed(2)+' MB.';
+    $('msg').textContent='Saved '+$('song').selectedOptions[0].dataset.name+': '+(bytes/1e6).toFixed(2)+' MB.';
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
   }catch(e){$('msg').textContent='Save failed: '+e.message;__state.error=e.message;}
   await refreshSaved();
 }
-async function removeSaved(){const s=$('song').value,c=await caches.open(SONGS);
-  await Promise.all(VOICES.map(v=>c.delete(url(s,v))));$('msg').textContent='Removed.';await refreshSaved();}
+async function removeSaved(){const s=$('song').value,name=$('song').selectedOptions[0].dataset.name,c=await caches.open(SONGS);
+  if(!(await isSaved(s))){$('msg').textContent=name+' was not saved, so there is nothing to remove.';return;}
+  await Promise.all(VOICES.map(v=>c.delete(url(s,v))));$('msg').textContent='Removed '+name+'. Other songs are untouched.';await refreshSaved();}
 // ---- playback ----
 async function play(){
   stop();__state.error=null;
@@ -80,6 +82,7 @@ async function play(){
 function stop(){sources.forEach(s=>{try{s.stop()}catch(e){}});sources=[];__state.playing=false;}
 // ---- wiring ----
 function init(){
+  for(const o of $('song').options) o.dataset.name=o.textContent;
   const mix=$('mix');
   ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
   VOICES.forEach(v=>{const g=ctx.createGain();g.connect(ctx.destination);gains[v]=g;
@@ -98,4 +101,8 @@ async function showVersion(){
   try{cache=(await caches.keys()).filter(k=>k.startsWith('shell-')).join(', ')||'none';}catch(e){}
   $('ver').textContent='Player version '+APP_VERSION+' | saved player copy: '+cache;
 }
+let installEvent=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;$('install').hidden=false;});
+addEventListener('appinstalled',()=>{$('install').hidden=true;installEvent=null;});
+$('install').onclick=async()=>{if(!installEvent)return;installEvent.prompt();await installEvent.userChoice;installEvent=null;$('install').hidden=true;};
 init();
