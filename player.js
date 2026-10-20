@@ -1,4 +1,4 @@
-const APP_VERSION='4'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='5'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -101,6 +101,10 @@ async function showVersion(){
   try{cache=(await caches.keys()).filter(k=>k.startsWith('shell-')).join(', ')||'none';}catch(e){}
   $('ver').textContent='Player version '+APP_VERSION+' | saved player copy: '+cache;
 }
+// two windows (browser shortcut and installed app) share one store, so re-read it when this window comes back
+const resync=()=>{if(document.hidden)return;refreshSaved();showAccess();};
+document.addEventListener('visibilitychange',resync);addEventListener('focus',resync);addEventListener('pageshow',resync);
+addEventListener('storage',e=>{if(e.key&&e.key.startsWith('poc-'))showAccess();});
 let installEvent=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;$('install').hidden=false;});
 addEventListener('appinstalled',()=>{$('install').hidden=true;installEvent=null;});
