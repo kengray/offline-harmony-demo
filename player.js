@@ -1,4 +1,4 @@
-const APP_VERSION='9'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='11'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -48,7 +48,10 @@ async function refreshSaved(){const s=$('song').value;
   for(const o of $('song').options){const sv=await isSaved(o.value);o.textContent=o.dataset.name+(sv?' (saved)':'');}
   $('saved').innerHTML=(await isSaved(s))?'<b class="ok">saved on this device</b>':'<span class="bad">not saved</span>';}
 async function save(){
-  const s=$('song').value;$('msg').textContent='Saving...';
+  const s=$('song').value;
+  const a=await showAccess();
+  if(!a.ok){$('msg').textContent='Cannot save: access '+a.why+'. Go online to renew.';return;}
+  $('msg').textContent='Saving...';
   try{const c=await caches.open(SONGS);let bytes=0;
     for(const v of VOICES){const r=await fetch(url(s,v));if(!r.ok)throw new Error('HTTP '+r.status);
       const copy=r.clone();bytes+=(await copy.arrayBuffer()).byteLength;await c.put(url(s,v),r);}
@@ -60,12 +63,17 @@ async function save(){
 async function removeSaved(){const s=$('song').value,name=$('song').selectedOptions[0].dataset.name,c=await caches.open(SONGS);
   if(!(await isSaved(s))){$('msg').textContent=name+' was not saved, so there is nothing to remove.';return;}
   await Promise.all(VOICES.map(v=>c.delete(url(s,v))));$('msg').textContent='Removed '+name+'. Other songs are untouched.';await refreshSaved();}
+// ---- audio context (iOS can leave it 'interrupted' after sleep or a network change, so rebuild when needed) ----
+const vols={};
+function buildGains(){VOICES.forEach(v=>{if(vols[v]==null)vols[v]=.8;const g=ctx.createGain();g.gain.value=vols[v];g.connect(ctx.destination);gains[v]=g;});}
+function rebuildAudio(){try{ctx.close();}catch(e){}ctx=new (window.AudioContext||window.webkitAudioContext)();buildGains();}
 // ---- playback ----
 async function play(){
   stop();__state.error=null;
   const t00=performance.now();
   // iOS Safari only unlocks audio when resume() is called straight from the tap, before any await.
   ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+  if(ctx.state==='interrupted'||ctx.state==='closed')rebuildAudio();
   const unlock=ctx.resume();
   // iOS: Web Audio is silenced by the mute switch unless the page uses the 'playback' audio session.
   try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
@@ -75,7 +83,9 @@ async function play(){
   if(!a.ok){$('msg').textContent='Cannot play: access '+a.why+'. Go online to renew.';__state.error='access '+a.why;return;}
   const s=$('song').value;
   try{
-    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await unlock;await ctx.resume();const tRes=performance.now()-t00;
+    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await Promise.race([unlock,new Promise(r=>setTimeout(r,1500))]);
+    if(ctx.state!=='running'){rebuildAudio();await Promise.race([ctx.resume(),new Promise(r=>setTimeout(r,1500))]);}
+    const tRes=performance.now()-t00;
     const saved=await isSaved(s);const tSav=performance.now()-t00;let tFetch=0;
     $('msg').textContent='Loading...';
     const bufs=await Promise.all(VOICES.map(async v=>{
@@ -86,7 +96,7 @@ async function play(){
     sources=bufs.map((b,i)=>{const src=ctx.createBufferSource();src.buffer=b;src.connect(gains[VOICES[i]]);src.start(t0);return src;});
     __state.playing=true;__state.decoded=bufs.map(b=>+b.duration.toFixed(2));
     const tAll=performance.now()-t00;
-    $('msg').textContent='Playing '+s+' ('+bufs.length+' parts, '+bufs[0].duration.toFixed(1)+' s) from '+(saved?'the copy saved on this device':'the network (not saved)')+'. Timings (ms since tap): access check '+Math.round(tAcc)+', audio started '+Math.round(tRes)+', saved check '+Math.round(tSav)+', files arrived '+Math.round(tFetch)+', decoded '+Math.round(tAll)+'.';
+    $('msg').textContent='Playing '+s+' ('+bufs.length+' parts, '+bufs[0].duration.toFixed(1)+' s) from '+(saved?'the copy saved on this device':'the network (not saved)')+'. Audio state: '+ctx.state+'. Timings (ms since tap): access check '+Math.round(tAcc)+', audio started '+Math.round(tRes)+', saved check '+Math.round(tSav)+', files arrived '+Math.round(tFetch)+', decoded '+Math.round(tAll)+'.';
   }catch(e){
     __state.error=e.message;
     $('msg').textContent=/^HTTP /.test(e.message)?'Could not load song: '+e.message:'Could not load: this song is not saved on this device and there is no connection.';}
@@ -97,10 +107,11 @@ function init(){
   for(const o of $('song').options) o.dataset.name=o.textContent;
   const mix=$('mix');
   ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
-  VOICES.forEach(v=>{const g=ctx.createGain();g.connect(ctx.destination);gains[v]=g;
+  buildGains();
+  VOICES.forEach(v=>{
     const row=document.createElement('div');row.className='row';
     row.innerHTML=`<label>${v}</label><input type="range" min="0" max="1" step="0.01" value="0.8" aria-label="${v} volume">`;
-    row.querySelector('input').oninput=e=>g.gain.value=+e.target.value;g.gain.value=.8;mix.appendChild(row);});
+    row.querySelector('input').oninput=e=>{vols[v]=+e.target.value;gains[v].gain.value=vols[v];};mix.appendChild(row);});
   const net=()=>{$('net').innerHTML='Network: '+(navigator.onLine?'<b class="ok">online</b>':'<b class="bad">offline</b>');};
   addEventListener('online',net);addEventListener('offline',net);net();
   $('getToken').onclick=()=>getToken().catch(e=>$('access').textContent='Token failed: '+e.message);
