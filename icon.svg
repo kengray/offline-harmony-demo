@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#2b4c7e"/><text x="32" y="42" font-size="28" text-anchor="middle" fill="#fff" font-family="sans-serif">BH</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1f3a5f"/>
+<defs><clipPath id="ca"><circle cx="24" cy="26" r="15"/></clipPath><clipPath id="cb"><circle cx="40" cy="26" r="15"/></clipPath></defs>
+<circle cx="24" cy="26" r="15" fill="#f2a541"/><circle cx="40" cy="26" r="15" fill="#4fb3a9"/><circle cx="32" cy="41" r="15" fill="#e4572e"/>
+<g clip-path="url(#ca)"><circle cx="40" cy="26" r="15" fill="#f6f1e7"/></g>
+<g clip-path="url(#ca)"><circle cx="32" cy="41" r="15" fill="#f6c9a0"/></g>
+<g clip-path="url(#cb)"><circle cx="32" cy="41" r="15" fill="#f0a08a"/></g>
+<g clip-path="url(#ca)"><g clip-path="url(#cb)"><circle cx="32" cy="41" r="15" fill="#ffffff"/></g></g></svg>
