@@ -1,4 +1,4 @@
-const APP_VERSION='5'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='6'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -63,11 +63,15 @@ async function removeSaved(){const s=$('song').value,name=$('song').selectedOpti
 // ---- playback ----
 async function play(){
   stop();__state.error=null;
+  // iOS Safari only unlocks audio when resume() is called straight from the tap, before any await.
+  ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+  const unlock=ctx.resume();
+  try{const sb=ctx.createBuffer(1,1,22050),ss=ctx.createBufferSource();ss.buffer=sb;ss.connect(ctx.destination);ss.start(0);}catch(e){}
   const a=await showAccess();
   if(!a.ok){$('msg').textContent='Cannot play: access '+a.why+'. Go online to renew.';__state.error='access '+a.why;return;}
   const s=$('song').value;
   try{
-    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();
+    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await unlock;await ctx.resume();
     const bufs=await Promise.all(VOICES.map(async v=>{
       const r=await fetch(url(s,v));if(!r.ok)throw new Error('HTTP '+r.status);
       return ctx.decodeAudioData(await r.arrayBuffer());}));
