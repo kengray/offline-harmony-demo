@@ -1,5 +1,5 @@
 // Service worker: stores the player itself (the "shell") and serves saved songs with no network.
-const SHELL='shell-v7', SONGS='songs-v1';   // change SHELL (and APP_VERSION in player.js) whenever the player files change
+const SHELL='shell-v8', SONGS='songs-v1';   // change SHELL (and APP_VERSION in player.js) whenever the player files change
 const SHELL_FILES=['./','./index.html','./player.js','./manifest.json','./icon.svg','./icon-32.png','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>c.addAll(SHELL_FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{

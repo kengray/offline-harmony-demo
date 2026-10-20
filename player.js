@@ -1,4 +1,4 @@
-const APP_VERSION='7'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='8'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -63,6 +63,7 @@ async function removeSaved(){const s=$('song').value,name=$('song').selectedOpti
 // ---- playback ----
 async function play(){
   stop();__state.error=null;
+  const t00=performance.now();
   // iOS Safari only unlocks audio when resume() is called straight from the tap, before any await.
   ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
   const unlock=ctx.resume();
@@ -75,13 +76,17 @@ async function play(){
   const s=$('song').value;
   try{
     ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await unlock;await ctx.resume();
+    const saved=await isSaved(s);let tFetch=0;
+    $('msg').textContent='Loading...';
     const bufs=await Promise.all(VOICES.map(async v=>{
       const r=await fetch(url(s,v));if(!r.ok)throw new Error('HTTP '+r.status);
-      return ctx.decodeAudioData(await r.arrayBuffer());}));
+      const ab=await r.arrayBuffer();tFetch=Math.max(tFetch,performance.now()-t00);
+      return ctx.decodeAudioData(ab);}));
     const t0=ctx.currentTime+0.1;
     sources=bufs.map((b,i)=>{const src=ctx.createBufferSource();src.buffer=b;src.connect(gains[VOICES[i]]);src.start(t0);return src;});
     __state.playing=true;__state.decoded=bufs.map(b=>+b.duration.toFixed(2));
-    $('msg').textContent='Playing '+s+' ('+bufs.length+' parts, '+bufs[0].duration.toFixed(1)+' s).';
+    const tAll=performance.now()-t00;
+    $('msg').textContent='Playing '+s+' ('+bufs.length+' parts, '+bufs[0].duration.toFixed(1)+' s) from '+(saved?'the copy saved on this device':'the network (not saved)')+'. Files in '+Math.round(tFetch)+' ms, ready after '+Math.round(tAll)+' ms.';
   }catch(e){
     __state.error=e.message;
     $('msg').textContent=/^HTTP /.test(e.message)?'Could not load song: '+e.message:'Could not load: this song is not saved on this device and there is no connection.';}
