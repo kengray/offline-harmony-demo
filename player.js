@@ -1,3 +1,4 @@
+const APP_VERSION='3'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -7,7 +8,7 @@ let ctx=null,sources=[],gains={};
 // ---- service worker (skipped when ?sw=0, used for the control run) ----
 async function initSW(){
   if(params.get('sw')==='0'||!('serviceWorker' in navigator)){$('sw').textContent='Service worker: off';return;}
-  try{await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;
+  try{await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;showVersion();
     __state.swActive=true;$('sw').innerHTML='Service worker: <b class="ok">installed, player is saved on this device</b>';}
   catch(e){$('sw').textContent='Service worker failed: '+e.message;}
 }
@@ -90,6 +91,11 @@ function init(){
   $('getToken').onclick=()=>getToken().catch(e=>$('access').textContent='Token failed: '+e.message);
   $('save').onclick=save;$('remove').onclick=removeSaved;$('play').onclick=play;$('stop').onclick=stop;
   $('song').onchange=refreshSaved;
-  initSW();showAccess();refreshSaved();
+  initSW();showAccess();refreshSaved();showVersion();
+}
+async function showVersion(){
+  let cache='none';
+  try{cache=(await caches.keys()).filter(k=>k.startsWith('shell-')).join(', ')||'none';}catch(e){}
+  $('ver').textContent='Player version '+APP_VERSION+' | saved player copy: '+cache;
 }
 init();
