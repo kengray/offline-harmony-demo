@@ -1,4 +1,4 @@
-const APP_VERSION='14'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='15'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -15,20 +15,37 @@ async function initSW(){
 // ---- access token: signed by the server, checked on the device with WebCrypto ----
 const b64uToBytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const toB64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-async function getToken(){   // demo only: signs in the browser; a real server would sign this
-  const ttl=+(params.get('ttl')||$('ttl').value);
+// Demo only: the page signs its own token. A real server would sign it. The time comes from the server's HTTP Date header, as a real server's clock would.
+async function serverNow(){
+  const r=await fetch('sw.js?t='+Date.now(),{method:'HEAD',cache:'no-store'});   // HEAD is not handled by the service worker, so it really reaches the server
+  const d=r.headers.get('Date');if(!d)throw new Error('no server time');return new Date(d).getTime();
+}
+async function getToken(auto){
+  const ttl=auto?+localStorage.getItem('poc-ttl'):+(params.get('ttl')||$('ttl').value);
+  let now;try{now=await serverNow();}catch(e){$('msg').textContent='Cannot get a token: no connection to the server.';return false;}
   const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-  const payload=toB64u(new TextEncoder().encode(JSON.stringify({sub:'demo-user',exp:Date.now()+ttl*1000})));
+  const payload=toB64u(new TextEncoder().encode(JSON.stringify({sub:'demo-user',exp:now+ttl*1000})));
   const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},kp.privateKey,new TextEncoder().encode(payload));
   localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');   // a new token always replaces the old one
-  localStorage.setItem('poc-seen',String(Date.now()));   // demo: stands in for the server's time
+  localStorage.setItem('poc-seen',String(now));   // the clock mark restarts from the server's time
+  localStorage.setItem('poc-ttl',String(ttl));
   localStorage.setItem('poc-token',payload+'.'+toB64u(sig));
   localStorage.setItem('poc-key',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.publicKey)));
   await showAccess();
-  $('msg').textContent='New token issued ('+(ttl>=86400?Math.round(ttl/86400)+' days':ttl+' seconds')+'). It replaces any earlier token.';
+  const len=(ttl>=86400?Math.round(ttl/86400)+' days':ttl+' seconds');
+  $('msg').textContent=auto?'Token renewed automatically because the player opened online ('+len+').':'New token issued ('+len+'). It replaces any earlier token.';
+  return true;
+}
+// renew quietly when the player opens or returns to the front while online (only if a token was issued before and has not been revoked)
+let lastRenew=0;
+const renewOn=()=>params.has('renew')?params.get('renew')==='1':$('renew').checked;
+async function maybeRenew(){
+  if(!renewOn()||!navigator.onLine||!localStorage.getItem('poc-token')||!localStorage.getItem('poc-ttl'))return;
+  if(Date.now()-lastRenew<5000)return;lastRenew=Date.now();
+  try{await getToken(true);}catch(e){}
 }
 function revokeToken(){
-  stop();localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');
+  stop();localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');localStorage.removeItem('poc-ttl');
   showAccess();$('msg').textContent='Token revoked on this device. Saved songs are kept but will not play until you get a new token.';
 }
 async function checkAccess(){
@@ -130,13 +147,15 @@ function init(){
     row.querySelector('input').oninput=e=>{vols[v]=+e.target.value;gains[v].gain.value=vols[v];};mix.appendChild(row);});
   const net=()=>{$('net').innerHTML='Network: '+(navigator.onLine?'<b class="ok">online</b>':'<b class="bad">offline</b>');};
   addEventListener('online',net);addEventListener('offline',net);net();
-  $('getToken').onclick=()=>getToken().catch(e=>$('access').textContent='Token failed: '+e.message);
+  $('getToken').onclick=()=>getToken(false).catch(e=>$('access').textContent='Token failed: '+e.message);
   $('revoke').onclick=revokeToken;
   try{const sv=localStorage.getItem('poc-purge-opt');if(sv!==null)$('purge').checked=sv==='1';}catch(e){}
+  try{const sr=localStorage.getItem('poc-renew-opt');if(sr!==null)$('renew').checked=sr==='1';}catch(e){}
+  $('renew').onchange=()=>{try{localStorage.setItem('poc-renew-opt',$('renew').checked?'1':'0');}catch(e){}};
   $('purge').onchange=()=>{try{localStorage.setItem('poc-purge-opt',$('purge').checked?'1':'0');}catch(e){}};
   $('save').onclick=save;$('remove').onclick=removeSaved;$('play').onclick=play;$('stop').onclick=stop;
   $('song').onchange=refreshSaved;
-  initSW();showAccess();refreshSaved();showVersion();
+  initSW();showVersion();(async()=>{await maybeRenew();await showAccess();await refreshSaved();})();
 }
 async function showVersion(){
   let cache='none';
@@ -144,7 +163,7 @@ async function showVersion(){
   $('ver').textContent='Player version '+APP_VERSION+' | saved player copy: '+cache;
 }
 // two windows (browser shortcut and installed app) share one store, so re-read it when this window comes back
-const resync=()=>{if(document.hidden)return;refreshSaved();showAccess();};
+const resync=async()=>{if(document.hidden)return;await maybeRenew();refreshSaved();showAccess();};
 document.addEventListener('visibilitychange',resync);addEventListener('focus',resync);addEventListener('pageshow',resync);
 addEventListener('storage',e=>{if(e.key&&e.key.startsWith('poc-'))showAccess();});
 let installEvent=null;

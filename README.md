@@ -10,7 +10,7 @@ Live demo: https://kengray.github.io/offline-harmony-demo/
 2. Press **Get demo access token** (choose 1 minute to watch it expire, or 30 days).
 3. Pick Song A and press **Save for offline**. Leave Song B unsaved.
 4. Switch on flight mode, close the browser tab and open the page again.
-5. Song A still plays. Song B says it is not saved. After the token expires, Song A stops and, unless you untick the box, the saved songs are deleted until you are online and save them again.
+5. Song A still plays. Song B says it is not saved. After the token expires, Song A stops and, unless you untick the box, the saved songs are deleted until you are online and save them again. When the player opens while online it renews the token by itself (untick the second box to stop that), using the server's clock from the HTTP Date header.
 
 ## What is in it
 - `sw.js`: service worker. Stores the player and serves saved songs with no network.
@@ -18,7 +18,7 @@ Live demo: https://kengray.github.io/offline-harmony-demo/
 - Token: ECDSA P-256 signature checked on the device with WebCrypto. Demo only: the page signs its own token.
   A real build has the server sign it after checking the subscription, with a 30-day check-in.
 - No encryption of the audio (left out on purpose for the first demo).
-- `tests/run.py`: 23 checks in headless Chromium (needs python playwright). `node tests/serve.js 8080` serves the demo locally.
+- `tests/run.py`: 25 checks in headless Chromium (needs python playwright). `node tests/serve.js 8080` serves the demo locally.
 - `gen_audio.py`: regenerates the dummy audio.
 
 ## Known limits
