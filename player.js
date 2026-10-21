@@ -1,4 +1,4 @@
-const APP_VERSION='15'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='16'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
