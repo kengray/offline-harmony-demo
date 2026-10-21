@@ -16,6 +16,7 @@ input[type=range]{flex:1} button{padding:.4rem .8rem;margin:.15rem} #status div{
 <select id="ttl"><option value="60">1 minute (to see expiry)</option><option value="2592000" selected>30 days</option></select>
 <button id="getToken">Get demo access token</button> <button id="revoke">Revoke token on this device</button>
 <button id="install" hidden>Install app on this device</button>
+<br><label style="font-size:.85rem"><input type="checkbox" id="purge" checked> Delete saved songs when the token has expired</label>
 <p style="font-size:.85rem">Demo only: here the page signs its own token. In a real build the server issues it after checking the subscription.</p>
 </fieldset>
 <fieldset><legend>Song</legend>
