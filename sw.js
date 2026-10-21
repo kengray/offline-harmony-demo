@@ -1,5 +1,5 @@
 // Service worker: stores the player itself (the "shell") and serves saved songs with no network.
-const SHELL='shell-v16', SONGS='songs-v1';   // change SHELL (and APP_VERSION in player.js) whenever the player files change
+const SHELL='shell-v17', SONGS='songs-v1';   // change SHELL (and APP_VERSION in player.js) whenever the player files change
 const SHELL_FILES=['./','./index.html','./player.js','./manifest.json','./icon.svg','./icon-32.png','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(async c=>{   // cache:'reload' skips the browser's own HTTP cache, so a stale copy of a file is never saved as the new version
     for(const f of SHELL_FILES){const r=await fetch(new Request(f,{cache:'reload'}));if(!r.ok)throw new Error(f+' '+r.status);await c.put(f,r);}

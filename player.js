@@ -1,4 +1,4 @@
-const APP_VERSION='16'; // change together with SHELL in sw.js whenever the player files change
+const APP_VERSION='17'; // change together with SHELL in sw.js whenever the player files change
 const VOICES=['guitar','lead','tenor','baritone'], SONGS='songs-v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -44,9 +44,13 @@ async function maybeRenew(){
   if(Date.now()-lastRenew<5000)return;lastRenew=Date.now();
   try{await getToken(true);}catch(e){}
 }
-function revokeToken(){
+async function revokeToken(){
   stop();localStorage.removeItem('poc-token');localStorage.removeItem('poc-key');localStorage.removeItem('poc-ttl');
-  showAccess();$('msg').textContent='Token revoked on this device. Saved songs are kept but will not play until you get a new token.';
+  const had=(await (await caches.open(SONGS)).keys()).length>0;
+  if(purgeOn()&&had){await purgeSongs();await refreshSaved();await showAccess();
+    $('msg').textContent='Token revoked on this device and the saved songs were deleted. Get a new token and save them again.';return;}
+  await showAccess();await refreshSaved();
+  $('msg').textContent='Token revoked on this device. '+(had?'Saved songs are kept (the delete option is off) but will not play until you get a new token.':'There were no saved songs.');
 }
 async function checkAccess(){
   const t=localStorage.getItem('poc-token'),k=localStorage.getItem('poc-key');
